@@ -1181,6 +1181,17 @@ public:
         }
       }
 
+        // Draw lower half of the mouth (arc below)
+        for (int i = 0; i < mouth_width; ++i) {
+          float t = (float)i / (mouth_width - 1);
+          int y = mouth_y + (int)(dynamic_height * sin(M_PI * t + M_PI));
+          for (int h = -1; h <= 1; ++h) {
+            int yy = y + h;
+            if (yy >= 0 && yy < height)
+              canvas()->SetPixel(i, yy, 255, 0, 0); // Red mouth lower arc
+          }
+        }
+
       frame++;
       usleep(60 * 1000); // ~60 FPS
     }
