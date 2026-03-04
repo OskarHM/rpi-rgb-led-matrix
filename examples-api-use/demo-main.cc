@@ -1147,6 +1147,47 @@ private:
   citizen* parents_;
 };
 
+
+
+// Demo: Moving mouth animation
+class TalkingMouth : public DemoRunner {
+public:
+  TalkingMouth(Canvas *canvas) : DemoRunner(canvas) {}
+
+  void Run() override {
+    const int width = canvas()->width();
+    const int height = canvas()->height();
+    const int mouth_y = height / 2;
+    const int mouth_width = width;
+    const int max_mouth_height = height / 2 - 2;
+    int frame = 0;
+
+    while (!interrupt_received) {
+      canvas()->Fill(0, 0, 0);
+
+      // Animate mouth opening/closing (mimic talking)
+      float phase = sin(frame * 0.15);
+      int dynamic_height = max_mouth_height / 2 + (int)(phase * max_mouth_height / 2);
+
+      // Draw mouth as a full-width arc (smile)
+      for (int i = 0; i < mouth_width; ++i) {
+        float t = (float)i / (mouth_width - 1);
+        int y = mouth_y + (int)(dynamic_height * sin(M_PI * t));
+        // Optionally thicken the mouth
+        for (int h = -1; h <= 1; ++h) {
+          int yy = y + h;
+          if (yy >= 0 && yy < height)
+            canvas()->SetPixel(i, yy, 255, 0, 0); // Red mouth
+        }
+      }
+
+      frame++;
+      usleep(60 * 1000); // ~60 FPS
+    }
+  }
+};
+  
+
 static int usage(const char *progname) {
   fprintf(stderr, "usage: %s <options> -D <demo-nr> [optional parameter]\n",
           progname);
@@ -1292,6 +1333,10 @@ int main(int argc, char *argv[]) {
     case 12:
       demo_runner = new WireCube(canvas);
       break;
+
+    case 13:
+      demo_runner = new TalkingMouth(canvas);
+      break;  
   }
 
   if (demo_runner == NULL)
