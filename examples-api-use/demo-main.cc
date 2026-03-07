@@ -10,6 +10,8 @@
 #include "pixel-mapper.h"
 #include "graphics.h"
 
+#include <mosquitto.h>
+
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
@@ -23,6 +25,11 @@
 #include <algorithm>
 #include <random>
 
+
+#include <atomic>
+#include <cstring>
+
+
 using std::min;
 using std::max;
 
@@ -30,6 +37,22 @@ using std::max;
 #define TERM_NORM "\033[0m"
 
 using namespace rgb_matrix;
+
+// MQTT Config
+const char* MQTT_BROKER_IP = "192.168.0.227";
+const int MQTT_PORT = 1883;
+
+std::atomic<bool> mouth_active(false);
+
+void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *msg) {
+    if (strcmp((char*)msg->payload, "ON") == 0) {
+        mouth_active = true;
+    } else if (strcmp((char*)msg->payload, "OFF") == 0) {
+        mouth_active = false;
+    }
+}
+
+
 
 volatile bool interrupt_received = false;
 static void InterruptHandler(int signo) {
@@ -1152,7 +1175,20 @@ private:
 // Demo: Moving mouth animation
 class TalkingMouth : public DemoRunner {
 public:
-  TalkingMouth(Canvas *canvas) : DemoRunner(canvas) {}
+  TalkingMouth(Canvas *canvas) : DemoRunner(canvas) {
+    mosquitto_lib_init();
+    mosq = mosquitto_new(NULL, true, NULL);
+    mosquitto_message_callback_set(mosq, on_message);
+    mosquitto_connect(mosq, MQTT_BROKER_IP, MQTT_PORT, 60);
+    mosquitto_subscribe(mosq, NULL, "mask/mouth", 0);
+    mosquitto_loop_start(mosq);
+  }
+
+  ~TalkingMouth() {
+    mosquitto_loop_stop(mosq, true);
+    mosquitto_destroy(mosq);
+    mosquitto_lib_cleanup();
+  }
 
   void Run() override {
     const int width = canvas()->width();
@@ -1165,37 +1201,38 @@ public:
     while (!interrupt_received) {
       canvas()->Fill(0, 0, 0);
 
-      // Animate mouth opening/closing (mimic talking)
-      float phase = sin(frame * 0.15);
-      int dynamic_height = max_mouth_height / 2 + (int)(phase * max_mouth_height / 2);
+      if (mouth_active) {
+        float phase = sin(frame * 0.15);
+        int dynamic_height = max_mouth_height / 2 + (int)(phase * max_mouth_height / 2);
 
-      // Draw mouth as a full-width arc (smile)
-      for (int i = 0; i < mouth_width; ++i) {
-        float t = (float)i / (mouth_width - 1);
-        int y = mouth_y + (int)(dynamic_height * sin(M_PI * t));
-        // Optionally thicken the mouth
-        for (int h = -1; h <= 1; ++h) {
-          int yy = y + h;
-          if (yy >= 0 && yy < height)
-            canvas()->SetPixel(i, yy, 255, 0, 0); // Red mouth
+        for (int i = 0; i < mouth_width; ++i) {
+          float t = (float)i / (mouth_width - 1);
+          int y = mouth_y + (int)(dynamic_height * sin(M_PI * t));
+          for (int h = -1; h <= 1; ++h) {
+            int yy = y + h;
+            if (yy >= 0 && yy < height)
+              canvas()->SetPixel(i, yy, 255, 0, 0);
+          }
         }
-      }
 
-        // Draw lower half of the mouth (arc below)
         for (int i = 0; i < mouth_width; ++i) {
           float t = (float)i / (mouth_width - 1);
           int y = mouth_y + (int)(dynamic_height * sin(M_PI * t + M_PI));
           for (int h = -1; h <= 1; ++h) {
             int yy = y + h;
             if (yy >= 0 && yy < height)
-              canvas()->SetPixel(i, yy, 255, 0, 0); // Red mouth lower arc
+              canvas()->SetPixel(i, yy, 255, 0, 0);
           }
         }
+        frame++;
+      }
 
-      frame++;
-      usleep(60 * 1000); // ~60 FPS
+      usleep(60 * 1000);
     }
   }
+
+private:
+  struct mosquitto *mosq;
 };
   
 
