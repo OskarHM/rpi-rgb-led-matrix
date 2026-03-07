@@ -1199,42 +1199,43 @@ public:
   void Run() override {
     const int width = canvas()->width();
     const int height = canvas()->height();
-    const int mouth_y = height / 2;
-    const int mouth_width = width;
-    const int max_mouth_height = height / 2 - 2;
+    const int mouth_center_y = height / 2;
+    const int mouth_width = width * 3 / 4;  // Narrower mouth
+    const int mouth_start_x = (width - mouth_width) / 2;  // Centered
+    const int max_open = height / 4;
     int frame = 0;
 
     while (!interrupt_received) {
       canvas()->Fill(0, 0, 0);
 
       if (mouth_active) {
-        printf("Drawing mouth frame %d\n", frame);
-        float phase = sin(frame * 0.15);
-        int dynamic_height = max_mouth_height / 2 + (int)(phase * max_mouth_height / 2);
+        float phase = (sin(frame * 0.2) + 1) / 2;  // 0 to 1
+        int open_amount = (int)(phase * max_open);
 
-        for (int i = 0; i < mouth_width; ++i) {
-          float t = (float)i / (mouth_width - 1);
-          int y = mouth_y + (int)(dynamic_height * sin(M_PI * t));
-          for (int h = -1; h <= 1; ++h) {
-            int yy = y + h;
-            if (yy >= 0 && yy < height)
-              canvas()->SetPixel(i, yy, 255, 0, 0);
-          }
-        }
-
-        for (int i = 0; i < mouth_width; ++i) {
-          float t = (float)i / (mouth_width - 1);
-          int y = mouth_y + (int)(dynamic_height * sin(M_PI * t + M_PI));
-          for (int h = -1; h <= 1; ++h) {
-            int yy = y + h;
-            if (yy >= 0 && yy < height)
-              canvas()->SetPixel(i, yy, 255, 0, 0);
+        // Draw filled mouth
+        for (int x = 0; x < mouth_width; ++x) {
+          float t = (float)x / (mouth_width - 1);
+          float curve = sin(M_PI * t);  // Curve shape
+          
+          int top_y = mouth_center_y - (int)(open_amount * curve);
+          int bottom_y = mouth_center_y + (int)(open_amount * curve);
+          
+          // Fill between top and bottom lip
+          for (int y = top_y; y <= bottom_y; ++y) {
+            if (y >= 0 && y < height) {
+              // Red lips, dark inside
+              if (y == top_y || y == top_y + 1 || y == bottom_y || y == bottom_y - 1) {
+                canvas()->SetPixel(mouth_start_x + x, y, 255, 0, 0);  // Red lips
+              } else {
+                canvas()->SetPixel(mouth_start_x + x, y, 40, 0, 0);  // Dark red inside
+              }
+            }
           }
         }
         frame++;
       }
 
-      usleep(60 * 1000);
+      usleep(50 * 1000);  // Slightly faster animation
     }
   }
 
