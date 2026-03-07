@@ -45,10 +45,13 @@ const int MQTT_PORT = 1883;
 std::atomic<bool> mouth_active(false);
 
 void on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *msg) {
+    printf("MQTT received: %s\n", (char*)msg->payload);
     if (strcmp((char*)msg->payload, "ON") == 0) {
         mouth_active = true;
+        printf("Mouth ON\n");
     } else if (strcmp((char*)msg->payload, "OFF") == 0) {
         mouth_active = false;
+        printf("Mouth OFF\n");
     }
 }
 
@@ -1180,7 +1183,10 @@ public:
     mosq = mosquitto_new(NULL, true, NULL);
     mosquitto_message_callback_set(mosq, on_message);
     mosquitto_connect(mosq, MQTT_BROKER_IP, MQTT_PORT, 60);
+    printf("MQTT connected to %s\n", MQTT_BROKER_IP);
     mosquitto_subscribe(mosq, NULL, "mask/mouth", 0);
+    printf("Subscribed to mask/mouth\n");
+
     mosquitto_loop_start(mosq);
   }
 
@@ -1202,6 +1208,7 @@ public:
       canvas()->Fill(0, 0, 0);
 
       if (mouth_active) {
+        printf("Drawing mouth frame %d\n", frame);
         float phase = sin(frame * 0.15);
         int dynamic_height = max_mouth_height / 2 + (int)(phase * max_mouth_height / 2);
 
